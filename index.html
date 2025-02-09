@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>정수 유리수 심화 (1)</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: white;
+      color: black;
+      margin: 20px;
+    }
+    h1, h2, p {
+      margin: 10px 0;
+    }
+    #startScreen, #gameScreen, #gameOverScreen {
+      margin-bottom: 20px;
+    }
+    .hidden {
+      display: none;
+    }
+    .option-button {
+      display: block;
+      margin: 5px 0;
+      padding: 10px;
+      background: white;
+      color: black;
+      border: 1px solid black;
+      cursor: pointer;
+      width: 100%;
+      text-align: left;
+    }
+    #nextButton:disabled {
+      opacity: 0.5;
+    }
+    #energyBarContainer {
+      width: 100%;
+      height: 20px;
+      background: black;
+      margin-top: 10px;
+    }
+    #energyBar {
+      height: 100%;
+      background: white;
+      width: 100%;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" defer></script>
+</head>
+<body>
+  <h1>정수 유리수 심화 (1)</h1>
+
+  <!-- 시작 화면 -->
+  <div id="startScreen">
+    <label>이름: <input type="text" id="playerName"></label><br><br>
+    <label>난이도: 
+      <select id="difficulty">
+        <option value="최상">최상 (20초/문제, 20점)</option>
+        <option value="상">상 (30초/문제, 15점)</option>
+        <option value="중">중 (40초/문제, 13점)</option>
+        <option value="하">하 (시간제한 없음, 10점)</option>
+      </select>
+    </label><br><br>
+    <button id="startButton">게임 시작</button>
+  </div>
+
+  <!-- 게임 화면 -->
+  <div id="gameScreen" class="hidden">
+    <div>전체 시간: <span id="overallTimer">0초</span></div>
+    <div>남은 기회: <span id="lives">3</span></div>
+    <div>점수: <span id="score">0</span></div>
+    <hr>
+    <div id="questionArea"></div>
+    <div id="optionsArea"></div>
+    <button id="nextButton" disabled>다음 문제</button>
+    <div id="energyBarContainer">
+      <div id="energyBar"></div>
+    </div>
+  </div>
+
+  <!-- 게임 종료 화면 -->
+  <div id="gameOverScreen" class="hidden">
+    <h2>게임 종료</h2>
+    <div>최종 점수: <span id="finalScore"></span></div>
+    <div>총 경과 시간: <span id="finalTime"></span>초</div>
+    <button id="saveButton">점수전송</button>
+    <pre id="response"></pre>
+  </div>
+
+  <script>
+    // 데이터 전송 함수
+    function saveData(game, name, score, elapsedTime) {
+        const FUNCTION_URL = "https://us-central1-record-f420d.cloudfunctions.net/report";
+
+        const requestData = {
+            game,
+            name,
+            score: parseInt(score, 10),
+            elapsedTime: parseInt(elapsedTime, 10)
+        };
+
+        try {
+            const response = fetch(FUNCTION_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            });
+
+            const responseData = response.json();
+
+            if (response.ok) {
+                document.getElementById('response').innerText = 
+                    `성공: ${JSON.stringify(responseData, null, 2)}`;
+            } else {
+                document.getElementById('response').innerText = 
+                    `오류: ${JSON.stringify(responseData, null, 2)}`;
+            }
+        } catch (error) {
+            console.error('요청 실패:', error);
+            document.getElementById('response').innerText = 
+                `네트워크 오류: ${error.message}`;
+        }
+    }
+
+    // 배열 섞기 함수
+    function shuffleArray(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [array[i], array[j]] = [array[j], array[i]];
+      }
+    }
+
+    // 전역 변수들
+    let problems = [];
+    let currentProblemIndex = 0;
+    let currentProblem = null;
+    let score = 0;
+    let lives = 3;
+    let overallTime = 0;
+    let overallTimerInterval;
+    let questionTimerInterval;
+    let questionTimeLimit = 0;
+    let remainingQuestionTime = 0;
+    let difficultyScore = 0;
+    let gameStarted = false;
+
+    /* 
+       문제 구성: 각 유형별 7문제씩 (총 35문제)
+       
+       [유형 1: 번갈아 계산하는 식]
+    */
+    const type1 = [
+      {
+        question: "계산하시오: \\(1 - 2 + 3 - 4 + \\cdots + 99 - 100 + 101 - 102 + 103\\)",
+        options: ["\\(-53\\)", "\\(-51\\)", "\\(0\\)", "\\(51\\)", "\\(52\\)"],
+        correct: "\\(52\\)"
+      },
+      {
+        question: "계산하시오: \\(3 - 4 + 5 - 6 + \\cdots + 101 - 102 + 103\\)",
+        options: ["\\(52\\)", "\\(53\\)", "\\(54\\)", "\\(-53\\)", "\\(-52\\)"],
+        correct: "\\(53\\)"
+      },
+      {
+        question: "계산하시오: \\(1 - 2 + 3 - 4 + \\cdots + 49 - 50\\)",
+        options: ["\\(-26\\)", "\\(-25\\)", "\\(25\\)", "\\(26\\)", "\\(0\\)"],
+        correct: "\\(-25\\)"
+      },
+      {
+        question: "계산하시오: \\(4 - 5 + 6 - 7 + \\cdots + 104 - 105 + 106\\)",
+        options: ["\\(55\\)", "\\(54\\)", "\\(-55\\)", "\\(-54\\)", "\\(56\\)"],
+        correct: "\\(55\\)"
+      },
+      {
+        question: "계산하시오: \\(5 - 6 + 7 - 8 + \\cdots + 97 - 98 + 99\\)",
+        options: ["\\(51\\)", "\\(52\\)", "\\(53\\)", "\\(-52\\)", "\\(-51\\)"],
+        correct: "\\(52\\)"
+      },
+      {
+        question: "계산하시오: \\(7 - 8 + 9 - 10 + \\cdots + 107 - 108\\)",
+        options: ["\\(-51\\)", "\\(-50\\)", "\\(50\\)", "\\(51\\)", "\\(0\\)"],
+        correct: "\\(-51\\)"
+      },
+      {
+        question: "계산하시오: \\(10 - 11 + 12 - 13 + \\cdots + 98 - 99 + 100\\)",
+        options: ["\\(55\\)", "\\(54\\)", "\\(-55\\)", "\\(-54\\)", "\\(56\\)"],
+        correct: "\\(55\\)"
+      }
+    ];
+
+    /* 
+       [유형 2: 일의 자리 수]
+    */
+    const type2 = [
+      {
+        question: "구하시오: \\(2^{199} + 3^{100} + 5^{11}\\)의 일의 자리 수는?",
+        options: ["\\(1\\)", "\\(2\\)", "\\(3\\)", "\\(4\\)", "\\(5\\)"],
+        correct: "\\(4\\)"
+      },
+      {
+        question: "구하시오: \\(2^{150} + 3^{75} + 5^{9}\\)의 일의 자리 수는?",
+        options: ["\\(4\\)", "\\(5\\)", "\\(6\\)", "\\(7\\)", "\\(8\\)"],
+        correct: "\\(6\\)"
+      },
+      {
+        question: "구하시오: \\(2^{83} + 3^{56} + 5^{7}\\)의 일의 자리 수는?",
+        options: ["\\(3\\)", "\\(4\\)", "\\(5\\)", "\\(6\\)", "\\(7\\)"],
+        correct: "\\(4\\)"
+      },
+      {
+        question: "구하시오: \\(2^{64} + 3^{29} + 5^{12}\\)의 일의 자리 수는?",
+        options: ["\\(2\\)", "\\(4\\)", "\\(6\\)", "\\(7\\)", "\\(9\\)"],
+        correct: "\\(4\\)"
+      },
+      {
+        question: "구하시오: \\(2^{97} + 3^{85} + 5^{6}\\)의 일의 자리 수는?",
+        options: ["\\(0\\)", "\\(1\\)", "\\(2\\)", "\\(3\\)", "\\(5\\)"],
+        correct: "\\(0\\)"
+      },
+      {
+        question: "구하시오: \\(2^{72} + 3^{63} + 5^{8}\\)의 일의 자리 수는?",
+        options: ["\\(6\\)", "\\(7\\)", "\\(8\\)", "\\(9\\)", "\\(0\\)"],
+        correct: "\\(8\\)"
+      },
+      {
+        question: "구하시오: \\(2^{55} + 3^{42} + 5^{10}\\)의 일의 자리 수는?",
+        options: ["\\(1\\)", "\\(2\\)", "\\(3\\)", "\\(4\\)", "\\(5\\)"],
+        correct: "\\(2\\)"
+      }
+    ];
+
+    /* 
+       [유형 3: 다섯 개의 유리수에서 서로 다른 세 수의 곱의 최댓값과 최솟값의 비율]
+    */
+    const type3 = [
+      {
+        question: "다섯 개의 유리수 \\( -\\dfrac{5}{4},\\; -\\dfrac{3}{2},\\; \\dfrac{7}{3},\\; \\dfrac{6}{5},\\; \\dfrac{7}{4} \\) 중 서로 다른 세 수의 곱 중 최댓값을 \\(a\\), 최솟값을 \\(b\\)라 할 때, \\(\\dfrac{a}{b}\\)의 값은?",
+        options: ["\\(-\\dfrac{4}{5}\\)", "\\(-\\dfrac{5}{7}\\)", "\\(1\\)", "\\(\\dfrac{5}{7}\\)", "\\(\\dfrac{4}{5}\\)"],
+        correct: "\\(-\\dfrac{4}{5}\\)"
+      },
+      {
+        question: "다섯 개의 유리수 \\( -\\dfrac{4}{3},\\; -\\dfrac{5}{2},\\; \\dfrac{8}{5},\\; \\dfrac{9}{7},\\; \\dfrac{5}{3} \\) 중 서로 다른 세 수의 곱 중 최댓값을 \\(a\\), 최솟값을 \\(b\\)라 할 때, \\(\\dfrac{a}{b}\\)의 값은?",
+        options: ["\\(-\\dfrac{5}{6}\\)", "\\(-\\dfrac{6}{5}\\)", "\\(1\\)", "\\(\\dfrac{6}{5}\\)", "\\(\\dfrac{5}{6}\\)"],
+        correct: "\\(-\\dfrac{5}{6}\\)"
+      },
+      {
+        question: "다섯 개의 유리수 \\( -\\dfrac{7}{5},\\; -\\dfrac{2}{3},\\; \\dfrac{11}{4},\\; \\dfrac{8}{5},\\; \\dfrac{9}{7} \\) 중 서로 다른 세 수의 곱 중 최댓값을 \\(a\\), 최솟값을 \\(b\\)라 할 때, \\(\\dfrac{a}{b}\\)의 값은?",
+        options: ["\\(-\\dfrac{45}{49}\\)", "\\(-\\dfrac{49}{45}\\)", "\\(1\\)", "\\(\\dfrac{45}{49}\\)", "\\(\\dfrac{49}{45}\\)"],
+        correct: "\\(-\\dfrac{45}{49}\\)"
+      },
+      {
+        question: "다섯 개의 유리수 \\( -\\dfrac{9}{7},\\; -\\dfrac{5}{3},\\; \\dfrac{13}{6},\\; \\dfrac{7}{4},\\; \\dfrac{10}{7} \\) 중 서로 다른 세 수의 곱 중 최댓값을 \\(a\\), 최솟값을 \\(b\\)라 할 때, \\(\\dfrac{a}{b}\\)의 값은?",
+        options: ["\\(-\\dfrac{78}{91}\\)", "\\(-\\dfrac{91}{78}\\)", "\\(1\\)", "\\(\\dfrac{78}{91}\\)", "\\(\\dfrac{91}{78}\\)"],
+        correct: "\\(-\\dfrac{78}{91}\\)"
+      },
+      {
+        question: "다섯 개의 유리수 \\( -\\dfrac{11}{8},\\; -\\dfrac{4}{3},\\; \\dfrac{9}{5},\\; \\dfrac{7}{4},\\; \\dfrac{8}{5} \\) 중 서로 다른 세 수의 곱 중 최댓값을 \\(a\\), 최솟값을 \\(b\\)라 할 때, \\(\\dfrac{a}{b}\\)의 값은?",
+        options: ["\\(-\\dfrac{64}{55}\\)", "\\(-\\dfrac{55}{64}\\)", "\\(1\\)", "\\(\\dfrac{64}{55}\\)", "\\(\\dfrac{55}{64}\\)"],
+        correct: "\\(-\\dfrac{64}{55}\\)"
+      },
+      {
+        question: "다섯 개의 유리수 \\( -\\dfrac{5}{2},\\; -\\dfrac{7}{3},\\; \\dfrac{11}{5},\\; \\dfrac{6}{5},\\; \\dfrac{8}{7} \\) 중 서로 다른 세 수의 곱 중 최댓값을 \\(a\\), 최솟값을 \\(b\\)라 할 때, \\(\\dfrac{a}{b}\\)의 값은?",
+        options: ["\\(-\\dfrac{35}{18}\\)", "\\(-\\dfrac{18}{35}\\)", "\\(1\\)", "\\(-\\dfrac{35}{24}\\)", "\\(-\\dfrac{24}{35}\\)"],
+        correct: "\\(-\\dfrac{35}{18}\\)"
+      },
+      {
+        question: "다섯 개의 유리수 \\( -\\dfrac{3}{2},\\; -\\dfrac{7}{4},\\; \\dfrac{5}{2},\\; \\dfrac{4}{3},\\; \\dfrac{3}{2} \\) 중 서로 다른 세 수의 곱 중 최댓값을 \\(a\\), 최솟값을 \\(b\\)라 할 때, \\(\\dfrac{a}{b}\\)의 값은?",
+        options: ["\\(-\\dfrac{1}{2}\\)", "\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(\\dfrac{1}{2}\\)"],
+        correct: "\\(-1\\)"
+      }
+    ];
+
+    /* 
+       [유형 4: \\(|a| = |b| = 1\\) 조건 하 지수식 계산]
+    */
+    const type4 = [
+      {
+        question: "단, \\(|a| = |b| = 1\\)이고 \\(a &gt; b\\)일 때, \\(\\dfrac{a^{11} - b^{11}}{a^{10} + b^{10}}\\)의 값을 구하시오.",
+        options: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(\\dfrac{1}{2}\\)", "\\(-\\dfrac{1}{2}\\)"],
+        correct: "\\(1\\)"
+      },
+      {
+        question: "단, \\(|a| = |b| = 1\\)이고 \\(a &gt; b\\)일 때, \\(\\dfrac{a^{7} - b^{7}}{a^{6} + b^{6}}\\)의 값을 구하시오.",
+        options: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(\\dfrac{1}{2}\\)", "\\(-\\dfrac{1}{2}\\)"],
+        correct: "\\(1\\)"
+      },
+      {
+        question: "단, \\(|a| = |b| = 1\\)이고 \\(a &gt; b\\)일 때, \\(\\dfrac{a^{9} - b^{9}}{a^{8} + b^{8}}\\)의 값을 구하시오.",
+        options: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(\\dfrac{1}{2}\\)", "\\(-\\dfrac{1}{2}\\)"],
+        correct: "\\(1\\)"
+      },
+      {
+        question: "단, \\(|a| = |b| = 1\\)이고 \\(a &gt; b\\)일 때, \\(\\dfrac{a^{13} - b^{13}}{a^{12} + b^{12}}\\)의 값을 구하시오.",
+        options: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(\\dfrac{1}{2}\\)", "\\(-\\dfrac{1}{2}\\)"],
+        correct: "\\(1\\)"
+      },
+      {
+        question: "단, \\(|a| = |b| = 1\\)이고 \\(a &gt; b\\)일 때, \\(\\dfrac{a^{15} - b^{15}}{a^{14} + b^{14}}\\)의 값을 구하시오.",
+        options: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(\\dfrac{1}{2}\\)", "\\(-\\dfrac{1}{2}\\)"],
+        correct: "\\(1\\)"
+      },
+      {
+        question: "단, \\(|a| = |b| = 1\\)이고 \\(a &gt; b\\)일 때, \\(\\dfrac{a^{5} - b^{5}}{a^{4} + b^{4}}\\)의 값을 구하시오.",
+        options: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(\\dfrac{1}{2}\\)", "\\(-\\dfrac{1}{2}\\)"],
+        correct: "\\(1\\)"
+      },
+      {
+        question: "단, \\(|a| = |b| = 1\\)이고 \\(a &gt; b\\)일 때, \\(\\dfrac{a^{17} - b^{17}}{a^{16} + b^{16}}\\)의 값을 구하시오.",
+        options: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(\\dfrac{1}{2}\\)", "\\(-\\dfrac{1}{2}\\)"],
+        correct: "\\(1\\)"
+      }
+    ];
+
+    /* 
+       [유형 5: a &gt; 0, b &lt; 0일 때 네 수의 크기 비교]
+    */
+    const type5 = [
+      {
+        question: "a &gt; 0, b &lt; 0일 때, 다음 네 수 \\( (A)\\; a+b,\\; (B)\\; a-b,\\; (C)\\; a-\\dfrac{1}{2}b,\\; (D)\\; b-\\dfrac{1}{2}a \\)를 큰 수부터 작은 수 순으로 나열하면?",
+        options: ["(B) - (C) - (A) - (D)", "(B) - (A) - (C) - (D)", "(A) - (B) - (C) - (D)", "(B) - (C) - (D) - (A)", "(C) - (B) - (A) - (D)"],
+        correct: "(B) - (C) - (A) - (D)"
+      },
+      {
+        question: "a &gt; 0, b &lt; 0일 때, 다음 네 수 \\( (i)\\; 2a-b,\\; (ii)\\; a+2b,\\; (iii)\\; a-2b,\\; (iv)\\; 2b-a \\)를 큰 수부터 작은 수 순으로 나열하면?",
+        options: ["(i) - (iii) - (ii) - (iv)", "(i) - (ii) - (iii) - (iv)", "(iii) - (i) - (ii) - (iv)", "(i) - (iii) - (iv) - (ii)", "(ii) - (i) - (iii) - (iv)"],
+        correct: "(i) - (iii) - (ii) - (iv)"
+      },
+      {
+        question: "a &gt; 0, b &lt; 0일 때, 다음 네 수 \\( (i)\\; a-\\dfrac{3}{4}b,\\; (ii)\\; a+\\dfrac{1}{4}b,\\; (iii)\\; 2a-b,\\; (iv)\\; a-\\dfrac{1}{2}b \\)를 큰 수부터 작은 수 순으로 나열하면?",
+        options: ["(iii) - (i) - (iv) - (ii)", "(i) - (iii) - (iv) - (ii)", "(iii) - (iv) - (i) - (ii)", "(i) - (iv) - (iii) - (ii)", "(iii) - (i) - (ii) - (iv)"],
+        correct: "(iii) - (i) - (iv) - (ii)"
+      },
+      {
+        question: "a &gt; 0, b &lt; 0일 때, 다음 네 수 \\( (i)\\; a+b,\\; (ii)\\; 2a-3b,\\; (iii)\\; 3a-2b,\\; (iv)\\; a-b \\)를 큰 수부터 작은 수 순으로 나열하면?",
+        options: ["(iii) - (ii) - (iv) - (i)", "(ii) - (iii) - (iv) - (i)", "(iii) - (iv) - (ii) - (i)", "(ii) - (iv) - (iii) - (i)", "(iv) - (iii) - (ii) - (i)"],
+        correct: "(iii) - (ii) - (iv) - (i)"
+      },
+      {
+        question: "a &gt; 0, b &lt; 0일 때, 다음 네 수 \\( (i)\\; 2a+ b,\\; (ii)\\; a-2b,\\; (iii)\\; a+3b,\\; (iv)\\; 3a-b \\)를 큰 수부터 작은 수 순으로 나열하면?",
+        options: ["(iv) - (i) - (ii) - (iii)", "(i) - (iv) - (ii) - (iii)", "(iv) - (ii) - (i) - (iii)", "(i) - (ii) - (iv) - (iii)", "(iv) - (i) - (iii) - (ii)"],
+        correct: "(iv) - (i) - (ii) - (iii)"
+      },
+      {
+        question: "a &gt; 0, b &lt; 0일 때, 다음 네 수 \\( (i)\\; a-\\dfrac{1}{3}b,\\; (ii)\\; a-b,\\; (iii)\\; 2a-b,\\; (iv)\\; a+\\dfrac{2}{3}b \\)를 큰 수부터 작은 수 순으로 나열하면?",
+        options: ["(iii) - (ii) - (i) - (iv)", "(ii) - (iii) - (i) - (iv)", "(iii) - (i) - (ii) - (iv)", "(ii) - (i) - (iii) - (iv)", "(iii) - (ii) - (iv) - (i)"],
+        correct: "(iii) - (ii) - (i) - (iv)"
+      },
+      {
+        question: "a &gt; 0, b &lt; 0일 때, 다음 네 수 \\( (i)\\; a-2b,\\; (ii)\\; a+b,\\; (iii)\\; 2a-3b,\\; (iv)\\; 3a-2b \\)를 큰 수부터 작은 수 순으로 나열하면?",
+        options: ["(iv) - (iii) - (i) - (ii)", "(iii) - (iv) - (i) - (ii)", "(iv) - (i) - (iii) - (ii)", "(iv) - (iii) - (ii) - (i)", "(iii) - (iv) - (ii) - (i)"],
+        correct: "(iv) - (iii) - (i) - (ii)"
+      }
+    ];
+
+    // 모든 문제를 하나의 배열에 합치기 (총 35문제)
+    problems = [].concat(type1, type2, type3, type4, type5);
+    // 문제 순서 무작위 섞기
+    shuffleArray(problems);
+
+    // 게임 관련 함수들
+    function startGame() {
+      const nameInput = document.getElementById('playerName').value;
+      if(nameInput.trim() === "") {
+        alert("이름을 입력하세요.");
+        return;
+      }
+      gameStarted = true;
+      document.getElementById('startScreen').classList.add('hidden');
+      document.getElementById('gameScreen').classList.remove('hidden');
+
+      // 난이도에 따른 문제 시간과 배점 설정
+      const diff = document.getElementById('difficulty').value;
+      if(diff === "최상") {
+        questionTimeLimit = 20;
+        difficultyScore = 20;
+      } else if(diff === "상") {
+        questionTimeLimit = 30;
+        difficultyScore = 15;
+      } else if(diff === "중") {
+        questionTimeLimit = 40;
+        difficultyScore = 13;
+      } else { // 하
+        questionTimeLimit = 0; // 시간제한 없음
+        difficultyScore = 10;
+      }
+
+      // 전체 게임 타이머 시작
+      overallTime = 0;
+      overallTimerInterval = setInterval(() => {
+        overallTime++;
+        document.getElementById('overallTimer').innerText = overallTime + "초";
+      }, 1000);
+
+      loadNextQuestion();
+    }
+
+    function loadNextQuestion() {
+      if(questionTimerInterval) {
+        clearInterval(questionTimerInterval);
+      }
+      // 에너지바 초기화
+      document.getElementById('energyBar').style.width = "100%";
+
+      if(currentProblemIndex >= problems.length) {
+        // 준비된 문제 모두 사용 시, 무작위 문제 제공
+        currentProblem = problems[Math.floor(Math.random() * problems.length)];
+      } else {
+        currentProblem = problems[currentProblemIndex];
+        currentProblemIndex++;
+      }
+      displayQuestion(currentProblem);
+
+      // 시간제한이 있는 경우 문제 타이머 시작
+      if(questionTimeLimit > 0) {
+        remainingQuestionTime = questionTimeLimit;
+        questionTimerInterval = setInterval(() => {
+          remainingQuestionTime -= 0.1;
+          let percent = (remainingQuestionTime / questionTimeLimit) * 100;
+          document.getElementById('energyBar').style.width = percent + "%";
+          if(remainingQuestionTime <= 0) {
+            clearInterval(questionTimerInterval);
+            disableOptions();
+            showCorrectAnswer();
+            lives--;
+            updateLives();
+            document.getElementById('nextButton').disabled = false;
+            if(lives <= 0) {
+              endGame();
+            }
+          }
+        }, 100);
+      }
+    }
+
+    function displayQuestion(problem) {
+      document.getElementById('questionArea').innerHTML = "<p>" + problem.question + "</p>";
+      MathJax.typeset();
+      // 보기 섞기
+      let options = problem.options.slice();
+      shuffleArray(options);
+      const optionsArea = document.getElementById('optionsArea');
+      optionsArea.innerHTML = "";
+      options.forEach(option => {
+        const btn = document.createElement('button');
+        btn.className = "option-button";
+        btn.innerHTML = option;
+        btn.onclick = function() {
+          if(questionTimerInterval) {
+            clearInterval(questionTimerInterval);
+          }
+          disableOptions();
+          if(option === problem.correct) {
+            btn.style.border = "2px solid green";
+            score += difficultyScore;
+            document.getElementById('score').innerText = score;
+          } else {
+            btn.style.border = "2px solid red";
+            showCorrectAnswer();
+            lives--;
+            updateLives();
+          }
+          document.getElementById('nextButton').disabled = false;
+          if(lives <= 0) {
+            endGame();
+          }
+        };
+        optionsArea.appendChild(btn);
+      });
+      document.getElementById('nextButton').disabled = true;
+      MathJax.typeset();
+    }
+
+    function disableOptions() {
+      const buttons = document.querySelectorAll('.option-button');
+      buttons.forEach(btn => {
+        btn.disabled = true;
+      });
+    }
+
+    function showCorrectAnswer() {
+      const buttons = document.querySelectorAll('.option-button');
+      buttons.forEach(btn => {
+        if(btn.innerHTML === currentProblem.correct) {
+          btn.style.border = "2px solid green";
+        }
+      });
+    }
+
+    function updateLives() {
+      document.getElementById('lives').innerText = lives;
+    }
+
+    function endGame() {
+      clearInterval(overallTimerInterval);
+      if(questionTimerInterval) {
+        clearInterval(questionTimerInterval);
+      }
+      document.getElementById('gameScreen').classList.add('hidden');
+      document.getElementById('gameOverScreen').classList.remove('hidden');
+      document.getElementById('finalScore').innerText = score;
+      document.getElementById('finalTime').innerText = overallTime;
+    }
+
+    document.getElementById('startButton').addEventListener('click', startGame);
+    document.getElementById('nextButton').addEventListener('click', loadNextQuestion);
+    document.getElementById('saveButton').addEventListener('click', function() {
+      const name = document.getElementById('playerName').value;
+      saveData("정수 유리수 심화 (1)", name, score, overallTime);
+    });
+  </script>
+</body>
+</html>
