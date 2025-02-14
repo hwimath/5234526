@@ -147,7 +147,7 @@
     let gameStarted = false;
 
     /* 
-       문제 구성: 각 유형별 7문제씩 (총 35문제)
+       문제 구성: 각 유형별 7문제씩 (총 28문제)
        
        [유형 1: 번갈아 계산하는 식]
     */
@@ -263,11 +263,6 @@
         question: "다섯 개의 유리수 \\( -\\dfrac{5}{2},\\; -\\dfrac{7}{3},\\; \\dfrac{11}{5},\\; \\dfrac{6}{5},\\; \\dfrac{8}{7} \\) 중 서로 다른 세 수의 곱 중 최댓값을 \\(a\\), 최솟값을 \\(b\\)라 할 때, \\(\\dfrac{a}{b}\\)의 값은?",
         options: ["\\(-\\dfrac{35}{18}\\)", "\\(-\\dfrac{18}{35}\\)", "\\(1\\)", "\\(-\\dfrac{35}{24}\\)", "\\(-\\dfrac{24}{35}\\)"],
         correct: "\\(-\\dfrac{35}{18}\\)"
-      },
-      {
-        question: "다섯 개의 유리수 \\( -\\dfrac{3}{2},\\; -\\dfrac{7}{4},\\; \\dfrac{5}{2},\\; \\dfrac{4}{3},\\; \\dfrac{3}{2} \\) 중 서로 다른 세 수의 곱 중 최댓값을 \\(a\\), 최솟값을 \\(b\\)라 할 때, \\(\\dfrac{a}{b}\\)의 값은?",
-        options: ["\\(-\\dfrac{1}{2}\\)", "\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(\\dfrac{1}{2}\\)"],
-        correct: "\\(-1\\)"
       }
     ];
 
@@ -312,49 +307,8 @@
       }
     ];
 
-    /* 
-       [유형 5: a &gt; 0, b &lt; 0일 때 네 수의 크기 비교]
-    */
-    const type5 = [
-      {
-        question: "a &gt; 0, b &lt; 0일 때, 다음 네 수 \\( (A)\\; a+b,\\; (B)\\; a-b,\\; (C)\\; a-\\dfrac{1}{2}b,\\; (D)\\; b-\\dfrac{1}{2}a \\)를 큰 수부터 작은 수 순으로 나열하면?",
-        options: ["(B) - (C) - (A) - (D)", "(B) - (A) - (C) - (D)", "(A) - (B) - (C) - (D)", "(B) - (C) - (D) - (A)", "(C) - (B) - (A) - (D)"],
-        correct: "(B) - (C) - (A) - (D)"
-      },
-      {
-        question: "a &gt; 0, b &lt; 0일 때, 다음 네 수 \\( (i)\\; 2a-b,\\; (ii)\\; a+2b,\\; (iii)\\; a-2b,\\; (iv)\\; 2b-a \\)를 큰 수부터 작은 수 순으로 나열하면?",
-        options: ["(i) - (iii) - (ii) - (iv)", "(i) - (ii) - (iii) - (iv)", "(iii) - (i) - (ii) - (iv)", "(i) - (iii) - (iv) - (ii)", "(ii) - (i) - (iii) - (iv)"],
-        correct: "(i) - (iii) - (ii) - (iv)"
-      },
-      {
-        question: "a &gt; 0, b &lt; 0일 때, 다음 네 수 \\( (i)\\; a-\\dfrac{3}{4}b,\\; (ii)\\; a+\\dfrac{1}{4}b,\\; (iii)\\; 2a-b,\\; (iv)\\; a-\\dfrac{1}{2}b \\)를 큰 수부터 작은 수 순으로 나열하면?",
-        options: ["(iii) - (i) - (iv) - (ii)", "(i) - (iii) - (iv) - (ii)", "(iii) - (iv) - (i) - (ii)", "(i) - (iv) - (iii) - (ii)", "(iii) - (i) - (ii) - (iv)"],
-        correct: "(iii) - (i) - (iv) - (ii)"
-      },
-      {
-        question: "a &gt; 0, b &lt; 0일 때, 다음 네 수 \\( (i)\\; a+b,\\; (ii)\\; 2a-3b,\\; (iii)\\; 3a-2b,\\; (iv)\\; a-b \\)를 큰 수부터 작은 수 순으로 나열하면?",
-        options: ["(iii) - (ii) - (iv) - (i)", "(ii) - (iii) - (iv) - (i)", "(iii) - (iv) - (ii) - (i)", "(ii) - (iv) - (iii) - (i)", "(iv) - (iii) - (ii) - (i)"],
-        correct: "(iii) - (ii) - (iv) - (i)"
-      },
-      {
-        question: "a &gt; 0, b &lt; 0일 때, 다음 네 수 \\( (i)\\; 2a+ b,\\; (ii)\\; a-2b,\\; (iii)\\; a+3b,\\; (iv)\\; 3a-b \\)를 큰 수부터 작은 수 순으로 나열하면?",
-        options: ["(iv) - (i) - (ii) - (iii)", "(i) - (iv) - (ii) - (iii)", "(iv) - (ii) - (i) - (iii)", "(i) - (ii) - (iv) - (iii)", "(iv) - (i) - (iii) - (ii)"],
-        correct: "(iv) - (i) - (ii) - (iii)"
-      },
-      {
-        question: "a &gt; 0, b &lt; 0일 때, 다음 네 수 \\( (i)\\; a-\\dfrac{1}{3}b,\\; (ii)\\; a-b,\\; (iii)\\; 2a-b,\\; (iv)\\; a+\\dfrac{2}{3}b \\)를 큰 수부터 작은 수 순으로 나열하면?",
-        options: ["(iii) - (ii) - (i) - (iv)", "(ii) - (iii) - (i) - (iv)", "(iii) - (i) - (ii) - (iv)", "(ii) - (i) - (iii) - (iv)", "(iii) - (ii) - (iv) - (i)"],
-        correct: "(iii) - (ii) - (i) - (iv)"
-      },
-      {
-        question: "a &gt; 0, b &lt; 0일 때, 다음 네 수 \\( (i)\\; a-2b,\\; (ii)\\; a+b,\\; (iii)\\; 2a-3b,\\; (iv)\\; 3a-2b \\)를 큰 수부터 작은 수 순으로 나열하면?",
-        options: ["(iv) - (iii) - (i) - (ii)", "(iii) - (iv) - (i) - (ii)", "(iv) - (i) - (iii) - (ii)", "(iv) - (iii) - (ii) - (i)", "(iii) - (iv) - (ii) - (i)"],
-        correct: "(iv) - (iii) - (i) - (ii)"
-      }
-    ];
-
-    // 모든 문제를 하나의 배열에 합치기 (총 35문제)
-    problems = [].concat(type1, type2, type3, type4, type5);
+    // 모든 문제를 하나의 배열에 합치기 (유형 1, 2, 3, 4; 총 28문제)
+    problems = [].concat(type1, type2, type3, type4);
     // 문제 순서 무작위 섞기
     shuffleArray(problems);
 
